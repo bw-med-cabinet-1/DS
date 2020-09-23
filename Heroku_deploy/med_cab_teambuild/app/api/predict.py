@@ -131,8 +131,8 @@ class UserInputData(BaseModel):
     also we will now get back more meaningful errors, 
     because fastapi is going to parse the new object for us,
     basically ensure a valid state for our object. """
-    include: Optional[Dict[str, str]]
-    exclude: Optional[Dict[str, str]]
+    include: Optional[Dict[str, bool]]
+    exclude: Optional[Dict[str, bool]]
 
     def to_df(self):
         '''somehow force shape, fillna'''
