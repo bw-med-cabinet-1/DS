@@ -30,7 +30,7 @@ dataframe = pd.read_csv('https://raw.githubusercontent.com/bw-med-cabinet-1/DS/m
 #print(len(dtm))
 router = APIRouter()
 
-nn_model = joblib.load("app/api/nn_model.joblib")
+nn_model = joblib.load("app/api/cat_model.joblib")
 nlp_model = joblib.load("app/api/nlp_model.joblib")
 #nlp_preprocessing = joblib.load("app/api/nlp_preprocessing.joblib")
 
@@ -44,109 +44,55 @@ nlp_cats = ['strain_id', 'strain', 'type', 'Rating', 'effects', 'flavor',
 #         'depression', 'pain', 'fatigue', 'insomnia', 'brain fog',
 #         'loss of appetite', 'nausea', 'low libido']
 
-nn_cats = ["body",
-        "potent",
-        "stress",
-        "relaxing",
-        "cerebral",
-        "mind",
-        "physical",
-        "uplifting",
-        "relaxation",
-        "day",
-        "cbd",
-        "euphoria",
-        "anxiety",
-        "relief",
-        "mood",
-        "appetite",
-        "mental",
-        "depression",
-        "energy",
-        "balanced",
-        "nausea",
-        "creative",
-        "insomnia",
-        "alien",
-        "good",
-        "help",
-        "stimulating",
-        "pain",
-        "fatigue",
-        "brain fog",
-        "loss of appetite",
-        "low libido",
-        "hybrid",
-        "sativa",
-        "indica",
-        "Focused",
-        "Happy",
-        "Aroused",
-        "Uplifted",
-        "Creative",
-        "Hungry",
-        "Sleepy",
-        "Giggly",
-        "Relaxed",
-        "Tingly",
-        "Energetic",
-        "Euphoric",
-        "Talkative",
-        "Grapefruit",
-        "Pear",
-        "Tree",
-        "Tobacco",
-        "Apple",
-        "Herbal",
-        "Citrus",
-        "Sage",
-        "Butter",
-        "Bluberry",
-        "Fruity",
-        "Tree Fruit",
-        "Rose",
-        "Chestnut",
-        "Skunk",
-        "Pepper",
-        "Fruit",
-        "Apricot",
-        "Mango",
-        "Tea",
-        "Vanilla",
-        "Berry",
-        "Strawberry",
-        "Menthol",
-        "Blue",
-        "Honey",
-        "Blueberry",
-        "Minty",
-        "Pine",
-        "Lavender",
-        "Flowery",
-        "Orange",
-        "Nutty",
-        "Grapes",
-        "Woody",
-        "Tropical",
-        "Peach",
-        "Grape",
-        "Diesel",
-        "Spicy",
-        "Mint",
-        "Sweet",
-        "Coffee",
-        "Chemical",
-        "Cheese",
-        "Tar",
-        "Ammonia",
-        "Bubblegum",
-        "Pineapple",
-        "Lemon",
-        "Plum",
-        "Earthy",
-        "Violet",
-        "Pungent",
-        "Lime"]
+features = ['body',
+ 'potent',
+ 'stress',
+ 'relaxing',
+ 'cerebral',
+ 'mind',
+ 'physical',
+ 'uplifting',
+ 'relaxation',
+ 'day',
+ 'cbd',
+ 'euphoria',
+ 'anxiety',
+ 'relief',
+ 'mood',
+ 'appetite',
+ 'mental',
+ 'depression',
+ 'energy',
+ 'balanced',
+ 'nausea',
+ 'creative',
+ 'insomnia',
+ 'alien',
+ 'good',
+ 'help',
+ 'stimulating',
+ 'pain',
+ 'fatigue',
+ 'brain fog',
+ 'loss of appetite',
+ 'low libido',
+ 'hybrid',
+ 'sativa',
+ 'indica',
+ 'Happy',
+ 'Hungry',
+ 'Aroused',
+ 'Creative',
+ 'Euphoric',
+ 'Relaxed',
+ 'Tingly',
+ 'Energetic',
+ 'Sleepy',
+ 'Giggly',
+ 'Uplifted',
+ 'Focused',
+ 'Talkative']
+nn_cats = [feature.lower() for feature in features]
 
 class UserInputData(BaseModel):
     """Create a class for OOP reasons.  I think we are better off hiding
@@ -162,15 +108,15 @@ class UserInputData(BaseModel):
         '''somehow force shape, fillna'''
         df = pd.DataFrame(columns=nn_cats)
         df.loc[0] = [0.5]*len(nn_cats) # number of training dimensions; 0.5 is null
-        for feature in self.include: # in 'include'
-            df[feature] = 1 # converts T/F to ints 1/0
+        for trait in self.include: # in 'include'
+            df[trait.lower()] = 1 # converts T/F to ints 1/0
         return df
     
     def nlp_formatting(self):
-        print(self.text)
+        #print(self.text)
         #vec = nlp_preprocessing.transform(self.text.encode('unicode_escape'))
         vec = nlp_preprocessing.transform([fR"{self.text}"])
-        print(f'vec shape: {vec.shape}')
+        #print(f'vec shape: {vec.shape}')
         # dense = vec.todense()
         # print(self.text)
         # print(f'dense: {dense}')
@@ -186,17 +132,16 @@ def predict_strain(user: UserInputData):
 
     if user.include or user.exclude:
         X_new = user.categorical_formatting()
-        print(X_new.shape)
-        neighbors = nn_model.kneighbors(X_new)[1][0] # vid @ 56:02
-        neighbor_ids = [int(id_) for id_ in neighbors]
+        neighbors = nn_model.kneighbors(X_new) # vid @ 56:02
+        neighbor_ids = [int(id_) for id_ in neighbors[1][0]]
         nn_return_values = [dataframe.iloc[id] for id in neighbor_ids]
 
     elif user.text and nlp_working:
-        print(f'user.text = True')
+        #print(f'user.text = True')
         X_new = user.nlp_formatting()
         #vec = nlp_preprocessing.transform(X_new)
         dense = X_new.todense()
-        print(f'dense/input shape : {dense.shape}')
+        #print(f'dense/input shape : {dense.shape}')
         similar = nlp_model.kneighbors(dense, return_distance=False)
         similar.T
         output = []
@@ -204,8 +149,8 @@ def predict_strain(user: UserInputData):
             elem = similar[0][i]
             output.append(elem)
         nlp_return_value = output[0]
-        print(user.text)
-        print(nlp_return_value)
+        #print(user.text)
+        #print(nlp_return_value)
     else: # if neither are given
         return {
             "error": "insufficient inputs"
