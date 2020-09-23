@@ -135,6 +135,7 @@ def predict_strain(user: UserInputData):
         neighbors = nn_model.kneighbors(X_new) # vid @ 56:02
         neighbor_ids = [int(id_) for id_ in neighbors[1][0]]
         nn_return_values = [dataframe.iloc[id] for id in neighbor_ids]
+        print(nn_return_values)
 
     elif user.text and nlp_working:
         #print(f'user.text = True')
