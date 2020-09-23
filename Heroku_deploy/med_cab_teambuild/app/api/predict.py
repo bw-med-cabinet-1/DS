@@ -1,27 +1,50 @@
-from typing import Dict, Optional  # helps enforce typing
-import logging
+from typing import Dict, Optional#, String# helps enforce typing
 import random
 import numpy as np
 from fastapi import APIRouter
 import joblib
 import pandas as pd
 from pydantic import BaseModel, Field, validator, Json
+# import spacy
+# from sklearn.feature_extraction.text import TfidfVectorizer
+# import en_core_web_sm
+# from spacy import load
+# nlp= en_core_web_sm.load()
+# # tokenizer function
+# def tokenizer(text):
+#     doc=nlp(text)
+#     return [token.lemma_ for token in doc if ((token.is_stop == False) and
+#     (token.is_punct == False)) and (token.pos_ != 'PRON')]
+# nlp_working = False
+# nlp_preprocessing = TfidfVectorizer(stop_words = 'english',
+#     ngram_range = (1, 2),
+#     max_df = .95,
+#     min_df = 3,
+#     tokenizer = tokenizer)
+# df = pd.read_csv('https://raw.githubusercontent.com/bw-med-cabinet-1/DS/master/data/cannabis_strain')
+# df = df.drop('Unnamed: 0', axis= 1)
+# nlp_preprocessing.fit_transform(df['effects'])
+#print(f'preprocessing')
+# dtm = pd.DataFrame(dtm.todense(), columns = nlp_preprocessing.get_feature_names())
 
-
-log = logging.getLogger(__name__)
+#print(len(dtm))
 router = APIRouter()
 
-model = joblib.load("app/api/nn_model.joblib")
+nn_model = joblib.load("app/api/nn_model.joblib")
+nlp_model = joblib.load("app/api/nlp_model.joblib")
+#nlp_preprocessing = joblib.load("app/api/nlp_preprocessing.joblib")
 
 print("Serialized Model Loaded")
 
+nlp_cats = ['strain_id', 'strain', 'type', 'Rating', 'effects', 'flavor',
+       'description']
 # cats = ['hybrid', 'sativa', 'indica', 'Aroused', 'Creative', 'Euphoric',
 #         'Energetic', 'Euphoric', 'Focused', 'Giggly', 'Happy', 'Hungry',
 #         'Relaxed', 'Sleepy', 'Talkative', 'Tingly', 'Uplifted', 'anxiety',
 #         'depression', 'pain', 'fatigue', 'insomnia', 'brain fog',
 #         'loss of appetite', 'nausea', 'low libido']
 
-cats = ["body",
+nn_cats = ["body",
         "potent",
         "stress",
         "relaxing",
@@ -133,24 +156,60 @@ class UserInputData(BaseModel):
     basically ensure a valid state for our object. """
     include: Optional[Dict[str, bool]]
     exclude: Optional[Dict[str, bool]]
+    text: Optional[str]
 
-    def to_df(self):
+    def categorical_formatting(self):
         '''somehow force shape, fillna'''
-        df = pd.DataFrame(columns=cats)
-        df.loc[0] = [0.5]*len(cats) # number of training dimensions; 0.5 is null
+        df = pd.DataFrame(columns=nn_cats)
+        df.loc[0] = [0.5]*len(nn_cats) # number of training dimensions; 0.5 is null
         for key, value in self.include.items(): # in 'include'
-            df[key] = int(bool(value)) # converts T/F to ints 1/0
+            df[key] = int(value) # converts T/F to ints 1/0
         return df
+    
+    def nlp_formatting(self):
+        print(self.text)
+        #vec = nlp_preprocessing.transform(self.text.encode('unicode_escape'))
+        vec = nlp_preprocessing.transform([fR"{self.text}"])
+        print(f'vec shape: {vec.shape}')
+        # dense = vec.todense()
+        # print(self.text)
+        # print(f'dense: {dense}')
+        # print(f'self.nlp_formatting() length:{len(dense)}')
+        return vec
 
 
 @router.post("/predict")
 def predict_strain(user: UserInputData):
     """Predict the ideal strain based on user input"""
-    X_new = user.to_df()
-    log.info(X_new)
-    neighbors = model.kneighbors(user.to_df())[1][0] # vid @ 56:02
+    nn_return_values = [] # initializing to empty for valid return
+    nlp_return_value = []
+
+    if user.include or user.exclude:
+        X_new = user.categorical_formatting()
+        neighbors = nn_model.kneighbors(X_new)[1][0] # vid @ 56:02
+        nn_return_values = [int(id_) for id_ in neighbors]
+    elif user.text and nlp_working:
+        print(f'user.text = True')
+        X_new = user.nlp_formatting()
+        #vec = nlp_preprocessing.transform(X_new)
+        dense = X_new.todense()
+        print(f'dense/input shape : {dense.shape}')
+        similar = nlp_model.kneighbors(dense, return_distance=False)
+        similar.T
+        output = []
+        for i in range(5):
+            elem = similar[0][i]
+            output.append(elem)
+        nlp_return_value = output[0]
+        print(user.text)
+        print(nlp_return_value)
+    else: # if neither are given
+        return {
+            "error": "insufficient inputs"
+        }
     return {
-        "IDs":[int(id_) for id_ in neighbors]
+        "Nearest Neighbors": nn_return_values,
+        "Text-based Prediction": nlp_return_value
     }
 
 # @router.get('/random')  # What is this route going to be?
