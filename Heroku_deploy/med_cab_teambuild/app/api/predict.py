@@ -1,4 +1,4 @@
-from typing import Dict, Optional#, String# helps enforce typing
+from typing import Dict, Optional, List #, String# helps enforce typing
 import random
 import numpy as np
 from fastapi import APIRouter
@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, validator, Json
 # nlp_preprocessing.fit_transform(df['effects'])
 #print(f'preprocessing')
 # dtm = pd.DataFrame(dtm.todense(), columns = nlp_preprocessing.get_feature_names())
-
+dataframe = pd.read_csv('https://raw.githubusercontent.com/bw-med-cabinet-1/DS/master/data/Cannabis_Strains_Features.csv')
 #print(len(dtm))
 router = APIRouter()
 
@@ -154,7 +154,7 @@ class UserInputData(BaseModel):
     also we will now get back more meaningful errors, 
     because fastapi is going to parse the new object for us,
     basically ensure a valid state for our object. """
-    include: Optional[Dict[str, bool]]
+    include: Optional[List[str]]
     exclude: Optional[Dict[str, bool]]
     text: Optional[str]
 
@@ -162,8 +162,8 @@ class UserInputData(BaseModel):
         '''somehow force shape, fillna'''
         df = pd.DataFrame(columns=nn_cats)
         df.loc[0] = [0.5]*len(nn_cats) # number of training dimensions; 0.5 is null
-        for key, value in self.include.items(): # in 'include'
-            df[key] = int(value) # converts T/F to ints 1/0
+        for feature in self.include: # in 'include'
+            df[feature] = 1 # converts T/F to ints 1/0
         return df
     
     def nlp_formatting(self):
@@ -186,8 +186,11 @@ def predict_strain(user: UserInputData):
 
     if user.include or user.exclude:
         X_new = user.categorical_formatting()
+        print(X_new.shape)
         neighbors = nn_model.kneighbors(X_new)[1][0] # vid @ 56:02
-        nn_return_values = [int(id_) for id_ in neighbors]
+        neighbor_ids = [int(id_) for id_ in neighbors]
+        nn_return_values = [dataframe.iloc[id] for id in neighbor_ids]
+
     elif user.text and nlp_working:
         print(f'user.text = True')
         X_new = user.nlp_formatting()
