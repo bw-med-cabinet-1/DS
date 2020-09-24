@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, validator, Json
 #     doc=nlp(text)
 #     return [token.lemma_ for token in doc if ((token.is_stop == False) and
 #     (token.is_punct == False)) and (token.pos_ != 'PRON')]
-# nlp_working = False
+nlp_working = False
 # nlp_preprocessing = TfidfVectorizer(stop_words = 'english',
 #     ngram_range = (1, 2),
 #     max_df = .95,
@@ -27,11 +27,15 @@ from pydantic import BaseModel, Field, validator, Json
 #print(f'preprocessing')
 # dtm = pd.DataFrame(dtm.todense(), columns = nlp_preprocessing.get_feature_names())
 dataframe = pd.read_csv('https://raw.githubusercontent.com/bw-med-cabinet-1/DS/master/data/Cannabis_Strains_Features.csv')
+#pd.to_numeric(dataframe['strain_id'])
+# for id in dataframe['strain_id']:
+#     dataframe['strain_id'][id] = id.__int__()
+# print(dataframe.strain_id.dtypes)
 #print(len(dtm))
 router = APIRouter()
 
 nn_model = joblib.load("app/api/cat_model.joblib")
-nlp_model = joblib.load("app/api/nlp_model.joblib")
+#nlp_model = joblib.load("app/api/nlp_model.joblib")
 #nlp_preprocessing = joblib.load("app/api/nlp_preprocessing.joblib")
 
 print("Serialized Model Loaded")
@@ -44,55 +48,12 @@ nlp_cats = ['strain_id', 'strain', 'type', 'Rating', 'effects', 'flavor',
 #         'depression', 'pain', 'fatigue', 'insomnia', 'brain fog',
 #         'loss of appetite', 'nausea', 'low libido']
 
-features = ['body',
- 'potent',
- 'stress',
- 'relaxing',
- 'cerebral',
- 'mind',
- 'physical',
- 'uplifting',
- 'relaxation',
- 'day',
- 'cbd',
- 'euphoria',
- 'anxiety',
- 'relief',
- 'mood',
- 'appetite',
- 'mental',
- 'depression',
- 'energy',
- 'balanced',
- 'nausea',
- 'creative',
- 'insomnia',
- 'alien',
- 'good',
- 'help',
- 'stimulating',
- 'pain',
- 'fatigue',
- 'brain fog',
- 'loss of appetite',
- 'low libido',
- 'hybrid',
- 'sativa',
- 'indica',
- 'Happy',
- 'Hungry',
- 'Aroused',
- 'Creative',
- 'Euphoric',
- 'Relaxed',
- 'Tingly',
- 'Energetic',
- 'Sleepy',
- 'Giggly',
- 'Uplifted',
- 'Focused',
- 'Talkative']
-nn_cats = [feature.lower() for feature in features]
+nn_cats = ['anxiety', 'depression', 'pain', 'fatigue', 'insomnia', 'brain fog',
+       'loss of appetite', 'nausea', 'low libido', 'hybrid', 'sativa',
+       'indica', 'happy', 'energentic', 'hungry', 'aroused', 'creative',
+       'euphoric', 'relaxed', 'tingly', 'energetic', 'sleepy', 'giggly',
+       'uplifted', 'focused', 'talkative']
+#nn_cats = [feature.lower() for feature in features]
 
 class UserInputData(BaseModel):
     """Create a class for OOP reasons.  I think we are better off hiding
@@ -135,7 +96,6 @@ def predict_strain(user: UserInputData):
         neighbors = nn_model.kneighbors(X_new) # vid @ 56:02
         neighbor_ids = [int(id_) for id_ in neighbors[1][0]]
         nn_return_values = [dataframe.iloc[id] for id in neighbor_ids]
-        print(nn_return_values)
 
     elif user.text and nlp_working:
         #print(f'user.text = True')
